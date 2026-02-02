@@ -2,7 +2,7 @@
 
 Benchmarks to substantiate claims in the blog post:
 
-**"Go Structs Are Not C++ Classes: 7 Hardware-Level Differences"**
+**["Go Structs Are Not C++ Classes: 7 Hardware-Level Differences"](https://blog.blackwell-systems.com/posts/go-structs-not-cpp-classes/)**
 
 These are not "Go vs C++" speed contests.
 They isolate specific CPU-level costs that show up when a design becomes:
