@@ -1,5 +1,10 @@
 // Benchmark 2: Interface dispatch vs concrete types
 // Run: go run virtual_dispatch.go
+//
+// This shows Go interfaces have similar costs to C++ virtual methods,
+// BUT the key difference: interfaces are opt-in.
+// You can process []Circle (concrete, fast) until you need polymorphism,
+// then switch to []Shape (interface, slower but flexible).
 
 package main
 
@@ -80,6 +85,15 @@ func main() {
 	fmt.Printf("Iterations: %d\n", iterations)
 	fmt.Printf("Total calls: %d\n\n", n*iterations)
 	
+	fmt.Println("KEY POINT:")
+	fmt.Println("Go interfaces are opt-in. You choose when to pay the cost:")
+	fmt.Println("  []Circle  - Concrete (fast, no polymorphism)")
+	fmt.Println("  []Shape   - Interface (slower, polymorphic)")
+	fmt.Println("\nC++ inheritance is opt-out. You pay by default:")
+	fmt.Println("  vector<Circle>  - Concrete (fast, but no polymorphism)")
+	fmt.Println("  vector<Shape*>  - Polymorphic (forced pointers + vtable)")
+	fmt.Println()
+	
 	// Warm up
 	benchmarkInterface(1000, 10)
 	benchmarkConcrete(1000, 10)
@@ -89,7 +103,7 @@ func main() {
 	interfaceMicros := interfaceTime.Microseconds()
 	interfacePerCall := interfaceTime.Nanoseconds() / int64(n*iterations)
 	
-	fmt.Println("Interface dispatch (dynamic):")
+	fmt.Println("Interface dispatch ([]Shape - opt-in polymorphism):")
 	fmt.Printf("  Total time: %.2f ms\n", float64(interfaceMicros)/1000.0)
 	fmt.Printf("  Time per call: %d ns\n\n", interfacePerCall)
 	
@@ -98,11 +112,13 @@ func main() {
 	concreteMicros := concreteTime.Microseconds()
 	concretePerCall := concreteTime.Nanoseconds() / int64(n*iterations)
 	
-	fmt.Println("Concrete type (static dispatch):")
+	fmt.Println("Concrete type ([]Circle - default, fast path):")
 	fmt.Printf("  Total time: %.2f ms\n", float64(concreteMicros)/1000.0)
 	fmt.Printf("  Time per call: %d ns\n\n", concretePerCall)
 	
 	// Calculate speedup
 	speedup := float64(interfaceTime) / float64(concreteTime)
 	fmt.Printf("Speedup: %.2fx faster for concrete types\n", speedup)
+	fmt.Println("\nConclusion: Both languages have dynamic dispatch costs.")
+	fmt.Println("Go makes it optional. C++ inheritance makes it mandatory.")
 }

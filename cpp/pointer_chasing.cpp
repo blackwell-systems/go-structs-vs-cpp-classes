@@ -1,6 +1,10 @@
 // Benchmark 1: Pointer chasing vs contiguous memory
 // Compile: g++ -O3 -std=c++17 -o pointer_chasing pointer_chasing.cpp
 // Run: ./pointer_chasing
+//
+// This demonstrates why C++ inheritance hierarchies are slow:
+// Polymorphism REQUIRES pointer arrays (can't store different-sized types inline).
+// Result: Every access becomes a cache miss lottery.
 
 #include <iostream>
 #include <vector>
@@ -76,6 +80,14 @@ int main() {
     std::cout << "Elements: " << n << "\n";
     std::cout << "Iterations: " << iterations << "\n\n";
     
+    std::cout << "WHY THIS MATTERS:\n";
+    std::cout << "C++ polymorphism requires pointer arrays:\n";
+    std::cout << "  vector<Shape*> shapes;  // Required for inheritance\n";
+    std::cout << "  vector<Shape> shapes;   // Fails (object slicing)\n\n";
+    std::cout << "Go allows concrete type arrays even with polymorphism:\n";
+    std::cout << "  circles := []Circle{{5}, {6}}  // No pointers needed\n";
+    std::cout << "  var shapes []Shape = ...       // Opt-in polymorphism\n\n";
+    
     // Warm up
     benchmark_pointer_array(1000, 10);
     benchmark_value_array(1000, 10);
@@ -85,7 +97,7 @@ int main() {
     auto pointer_ms = pointer_time / 1000000.0;
     auto pointer_per_element = pointer_time / (n * iterations);
     
-    std::cout << "Pointer array (scattered heap):\n";
+    std::cout << "Pointer array (scattered heap - required for C++ polymorphism):\n";
     std::cout << "  Total time: " << pointer_ms << " ms\n";
     std::cout << "  Time per element: " << pointer_per_element << " ns\n\n";
     
@@ -94,13 +106,15 @@ int main() {
     auto value_ms = value_time / 1000000.0;
     auto value_per_element = value_time / (n * iterations);
     
-    std::cout << "Value array (contiguous memory):\n";
+    std::cout << "Value array (contiguous memory - possible without polymorphism):\n";
     std::cout << "  Total time: " << value_ms << " ms\n";
     std::cout << "  Time per element: " << value_per_element << " ns\n\n";
     
     // Calculate speedup
     double speedup = static_cast<double>(pointer_time) / value_time;
     std::cout << "Speedup: " << speedup << "x faster for contiguous memory\n";
+    std::cout << "\nC++ forces this cost when using inheritance.\n";
+    std::cout << "Go makes it optional (use []T for values, []Shape for polymorphism).\n";
     
     return 0;
 }
