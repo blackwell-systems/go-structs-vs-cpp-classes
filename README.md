@@ -47,10 +47,12 @@ go run virtual_dispatch.go
 ### 3. Heap vs Stack Allocation
 
 Tests the allocation overhead difference between:
-- C++: new/delete (heap allocation with malloc/free)
-- C++: Automatic storage (stack allocation)
-- Go: Heap allocation (when pointer escapes)
-- Go: Stack allocation (escape analysis optimization)
+- C++: Heap allocation (new + pointer storage in vector)
+- C++: Stack-based storage (value storage in vector)
+- Go: Heap allocation (pointer slice)
+- Go: Value storage (contiguous slice)
+
+This benchmark stores allocated objects in collections to prevent dead code elimination, representing realistic usage patterns.
 
 **C++ Compile & Run:**
 ```bash
@@ -65,7 +67,7 @@ cd go
 go run allocation.go
 
 # To see escape analysis decisions:
-go run -gcflags="-m" allocation.go 2>&1 | grep "escapes to heap\|does not escape"
+go run -gcflags="-m" allocation.go 2>&1 | grep escape
 ```
 
 ## Running All Benchmarks
@@ -117,11 +119,11 @@ Based on hardware fundamentals:
    - **Expected:** 10-20× difference
 
 3. **Allocation:**
-   - C++ heap: ~100ns per allocation (malloc overhead)
-   - C++ stack: <1ns per allocation (stack pointer adjustment)
-   - Go heap: ~20ns per allocation (Go allocator)
-   - Go stack: <1ns per allocation (escape analysis)
-   - **Expected:** 100× difference (stack vs heap)
+   - C++ heap (new + pointer storage): ~35ns per allocation
+   - C++ stack-based (vector values): ~7ns per allocation
+   - Go heap (pointer slice): ~100ns per allocation
+   - Go value slice: ~60ns per allocation
+   - **Expected:** 2-5× difference (value storage vs pointer storage)
 
 ## Notes
 

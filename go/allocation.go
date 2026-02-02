@@ -1,91 +1,107 @@
-// Benchmark 3: Heap vs stack allocation (via escape analysis)
+// Benchmark 3: Heap vs stack allocation
 // Run: go run allocation.go
-// To see escape analysis: go run -gcflags="-m" allocation.go
+// To see escape analysis: go run -gcflags="-m" allocation.go 2>&1 | grep escape
 
 package main
 
 import (
 	"fmt"
 	"time"
+	"unsafe"
 )
 
 type Point struct {
 	X, Y int
+	Data [10]int  // Make it bigger to prevent optimizations
 }
 
-// Forces heap allocation (returns pointer)
-func createHeap(i int) *Point {
-	p := Point{X: i, Y: i}
-	return &p  // Escapes to heap
-}
+// Global to prevent optimizer from eliminating allocations
+var gSum int64
 
-// Stack allocation (value doesn't escape)
-func createStack(i int) Point {
-	p := Point{X: i, Y: i}
-	return p  // Stays on stack
-}
-
-// Benchmark heap allocation
-func benchmarkHeap(n int) time.Duration {
+// Benchmark heap allocation (store pointers in slice)
+func benchmarkHeapRealistic(n int) time.Duration {
+	points := make([]*Point, 0, n)
+	
 	start := time.Now()
 	
+	// Allocate (escapes to heap)
 	for i := 0; i < n; i++ {
-		p := createHeap(i)
-		
-		// Use the pointer to prevent optimization
-		if p.X < 0 {
-			fmt.Println(p.X)
-		}
+		p := &Point{}
+		p.X = i
+		p.Y = i
+		points = append(points, p)  // Store pointer (forces escape)
 	}
 	
-	return time.Since(start)
+	allocEnd := time.Now()
+	
+	// Use the data (prevents dead code elimination)
+	sum := int64(0)
+	for _, p := range points {
+		sum += int64(p.X + p.Y)
+	}
+	gSum = sum
+	
+	return allocEnd.Sub(start)
 }
 
-// Benchmark stack allocation
-func benchmarkStack(n int) time.Duration {
+// Benchmark stack allocation (values in slice)
+func benchmarkStackRealistic(n int) time.Duration {
+	points := make([]Point, 0, n)
+	
 	start := time.Now()
 	
+	// Allocate (stays in slice's contiguous memory)
 	for i := 0; i < n; i++ {
-		p := createStack(i)
-		
-		// Use the value to prevent optimization
-		if p.X < 0 {
-			fmt.Println(p.X)
-		}
+		p := Point{}
+		p.X = i
+		p.Y = i
+		points = append(points, p)  // Store value
 	}
 	
-	return time.Since(start)
+	allocEnd := time.Now()
+	
+	// Use the data (prevents dead code elimination)
+	sum := int64(0)
+	for _, p := range points {
+		sum += int64(p.X + p.Y)
+	}
+	gSum = sum
+	
+	return allocEnd.Sub(start)
 }
 
 func main() {
-	const n = 10000000  // 10 million allocations
+	const n = 1000000  // 1 million allocations
 	
-	fmt.Println("Benchmarking Go heap vs stack allocation")
-	fmt.Printf("Allocations: %d\n\n", n)
+	fmt.Println("Benchmarking Go realistic allocation patterns")
+	fmt.Printf("Allocations: %d\n", n)
+	fmt.Printf("Object size: %d bytes\n\n", int(unsafe.Sizeof(Point{})))
 	
 	// Warm up
-	benchmarkHeap(1000)
-	benchmarkStack(1000)
+	benchmarkHeapRealistic(1000)
+	benchmarkStackRealistic(1000)
 	
 	// Benchmark heap allocation
-	heapTime := benchmarkHeap(n)
+	heapTime := benchmarkHeapRealistic(n)
 	heapMicros := heapTime.Microseconds()
 	heapPerAlloc := heapTime.Nanoseconds() / int64(n)
 	
-	fmt.Println("Heap allocation (escapes):")
+	fmt.Println("Heap allocation (pointer slice):")
 	fmt.Printf("  Total time: %.2f ms\n", float64(heapMicros)/1000.0)
 	fmt.Printf("  Time per allocation: %d ns\n\n", heapPerAlloc)
 	
 	// Benchmark stack allocation
-	stackTime := benchmarkStack(n)
+	stackTime := benchmarkStackRealistic(n)
 	stackMicros := stackTime.Microseconds()
 	stackPerAlloc := stackTime.Nanoseconds() / int64(n)
 	
-	fmt.Println("Stack allocation (escape analysis):")
+	fmt.Println("Value slice (contiguous storage):")
 	fmt.Printf("  Total time: %.2f ms\n", float64(stackMicros)/1000.0)
 	fmt.Printf("  Time per allocation: %d ns\n\n", stackPerAlloc)
 	
 	// Calculate speedup
 	speedup := float64(heapTime) / float64(stackTime)
-	fmt.Printf("Speedup: %.2fx faster for stack allocation\n", speedup)
+	fmt.Printf("Speedup: %.2fx faster for value storage\n", speedup)
+	fmt.Println("\nNote: This measures allocation + initialization + append.")
+	fmt.Println("Heap requires malloc per object, value slice grows contiguously.")
 }
